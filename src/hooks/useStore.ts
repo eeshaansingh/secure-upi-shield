@@ -16,7 +16,7 @@ export function useStore() {
 
   useEffect(() => {
     const unsub = subscribe(refresh);
-    return () => { unsub; };
+    return unsub;
   }, [refresh]);
 
   return { transactions, logs, session };

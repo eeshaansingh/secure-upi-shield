@@ -24,9 +24,9 @@ function notify() {
   listeners.forEach(fn => fn());
 }
 
-export function subscribe(fn: Listener) {
+export function subscribe(fn: Listener): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => { listeners.delete(fn); };
 }
 
 export function getTransactions() { return [...transactions]; }
