@@ -4,7 +4,7 @@ import { type Transaction, type PhishingType } from './types';
 import { calculateRiskScore, getRiskLevel, getAuthMethod } from './riskEngine';
 import { generateTransactionId } from './securityUtils';
 
-const phishingScenarios: Array<{
+interface ScenarioTemplate {
   type: PhishingType;
   senderName: string;
   senderUpi: string;
@@ -12,7 +12,9 @@ const phishingScenarios: Array<{
   note: string;
   isPhishing: boolean;
   securityTip: string;
-}> = [
+}
+
+const fraudScenarios: ScenarioTemplate[] = [
   {
     type: 'fake_collect',
     senderName: 'Amazon Refund',
@@ -42,15 +44,6 @@ const phishingScenarios: Array<{
   },
   {
     type: 'fake_collect',
-    senderName: 'Ravi Kumar',
-    senderUpi: 'ravi.kumar@okaxis',
-    amount: 500,
-    note: 'Paying you back for dinner last night',
-    isPhishing: false,
-    securityTip: '✅ This appears to be a legitimate payment from a known contact. Always verify the sender.',
-  },
-  {
-    type: 'fake_collect',
     senderName: 'IRCTC Official',
     senderUpi: 'irctc.refund2024@ybl',
     amount: 8750,
@@ -67,21 +60,84 @@ const phishingScenarios: Array<{
     isPhishing: true,
     securityTip: '🔐 You NEVER need to enter your PIN to receive money. This is a classic QR scam.',
   },
+  {
+    type: 'fake_payment_received',
+    senderName: 'Paytm Cashback',
+    senderUpi: 'cashback@paytm-offers',
+    amount: 1500,
+    note: 'Congratulations! ₹1,500 cashback credited. Verify now!',
+    isPhishing: true,
+    securityTip: '🚨 Cashback is credited automatically. Never click links to "verify" cashback.',
+  },
 ];
 
-export function getRandomScenario(): Transaction {
-  const scenario = phishingScenarios[Math.floor(Math.random() * phishingScenarios.length)];
-  const hour = new Date().getHours();
+const legitScenarios: ScenarioTemplate[] = [
+  {
+    type: 'fake_collect',
+    senderName: 'Ravi Kumar',
+    senderUpi: 'ravi.kumar@okaxis',
+    amount: 500,
+    note: 'Paying you back for dinner last night',
+    isPhishing: false,
+    securityTip: '✅ This appears to be a legitimate payment from a known contact. Always verify the sender.',
+  },
+  {
+    type: 'fake_collect',
+    senderName: 'Sneha Patel',
+    senderUpi: 'sneha.p@oksbi',
+    amount: 250,
+    note: 'My share for the movie tickets',
+    isPhishing: false,
+    securityTip: '✅ Small personal payments from known contacts are usually safe. Still verify the UPI ID.',
+  },
+  {
+    type: 'fake_collect',
+    senderName: 'Amit Shah',
+    senderUpi: 'amit.shah92@okicici',
+    amount: 1200,
+    note: 'Rent contribution for this month',
+    isPhishing: false,
+    securityTip: '✅ Regular payments from known contacts are typically legitimate.',
+  },
+];
 
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+interface ScenarioConfig {
+  amountSize?: 'small' | 'large';
+  isFraud?: boolean;
+  type?: PhishingType;
+}
+
+export function getScenarioWithConfig(config: ScenarioConfig): Transaction {
+  // Determine fraud or legit
+  const isFraud = config.isFraud ?? Math.random() > 0.35;
+  const pool = isFraud ? fraudScenarios : legitScenarios;
+
+  // Filter by type if specified
+  let filtered = config.type ? pool.filter(s => s.type === config.type) : pool;
+  if (filtered.length === 0) filtered = pool;
+
+  let scenario = { ...pick(filtered) };
+
+  // Override amount based on size preference
+  if (config.amountSize === 'small') {
+    scenario.amount = Math.floor(Math.random() * 900) + 100; // 100-999
+  } else if (config.amountSize === 'large') {
+    scenario.amount = Math.floor(Math.random() * 45000) + 5000; // 5000-50000
+  }
+
+  const hour = new Date().getHours();
   const riskScore = calculateRiskScore({
     amount: scenario.amount,
-    isNewReceiver: true,
+    isNewReceiver: scenario.isPhishing,
     hour,
-    isFirstInteraction: true,
+    isFirstInteraction: scenario.isPhishing,
     phishingType: scenario.type,
     hasUrgentLanguage: scenario.note.includes('URGENT') || scenario.note.includes('immediately'),
   });
-
   const riskLevel = getRiskLevel(riskScore);
 
   return {
@@ -95,8 +151,13 @@ export function getRandomScenario(): Transaction {
   };
 }
 
+// Keep backward compat
+export function getRandomScenario(): Transaction {
+  return getScenarioWithConfig({});
+}
+
 export function getAllScenarios(): Transaction[] {
-  return phishingScenarios.map((scenario) => {
+  return [...fraudScenarios, ...legitScenarios].map((scenario) => {
     const riskScore = calculateRiskScore({
       amount: scenario.amount,
       isNewReceiver: scenario.isPhishing,
