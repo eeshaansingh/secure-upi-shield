@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, QrCode, MessageSquare, ArrowRight, Shield, X, Check, Banknote, UserX, UserCheck, Settings2 } from 'lucide-react';
+import { AlertTriangle, QrCode, MessageSquare, ArrowRight, Shield, X, Check, Banknote, UserX, UserCheck, Settings2, Zap } from 'lucide-react';
 import { getScenarioWithConfig } from '@/lib/mockData';
 import { addTransaction, updateTransaction, logAction, recordDecision } from '@/lib/store';
 import type { Transaction, PhishingType } from '@/lib/types';
